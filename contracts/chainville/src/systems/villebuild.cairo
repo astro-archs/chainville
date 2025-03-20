@@ -18,15 +18,18 @@ pub trait IVilleBuild<TContractState> {
         grid_z: u32,
         name: felt252,
         district_type: DistrictType,
-        owner: ContractAddress,
+        row: u16,
+        col: u16,
     ) -> u32;
-    fn create( ref self: TContractState,
+    fn create_cell( ref self: TContractState,
         game_id: u32,
-        city_id: u32,
-        city_name: felt252,
-        player_name: felt252,
+        grid_id: u32,
+        district_id: u32,
         x: u32,
-        y: u32
+        y: u32,
+        z: u32,
+        row: u16,
+        col: u16,
     ) -> u32;
     fn transfer(ref self: TContractState, game_id: u32, new_admin: ContractAddress);
     fn leave(ref self: TContractState, game_id: u32);
@@ -51,7 +54,7 @@ mod villebuild {
     use chainville::models::game::{Game, GameTrait};
     use chainville::models::mayor::{Mayor, MayorTrait};
     use chainville::models::city::{City,CityTrait,Coordinates};
-    use chainville::models::grid::{Grid,GridTrait,GridPosition, GridPositionTrait,District,DistrictType};
+    use chainville::models::grid::{Grid,GridTrait,GridPosition, GridPositionTrait,District,DistrictTrait,DistrictType,Cell,CellTrait,DistrictPosition,CellPosition};
     //use chainville::utils::helper::{HelperTrait};
     use chainville::constants::{DISTRICT_COUNT};
 
@@ -123,7 +126,8 @@ mod villebuild {
             grid_z: u32,
             name: felt252,
             district_type: DistrictType,
-            owner: ContractAddress,
+            row: u16,
+            col: u16
         ) -> u32 {
 
             let mut world = self.world_default();
@@ -135,40 +139,104 @@ mod villebuild {
             // [Effect] Game
             let district_id = world.dispatcher.uuid();
 
+            let mut city: City = world.read_model((game_id,city_id,caller));
+
+            assert(city.active,'City Not Active');
+
+            assert(city.district_count <= DISTRICT_COUNT, 'Maximum Districts Reached ');
+
 
             let grid: Grid = world.read_model((game_id,grid_id,city_id,caller));
 
             assert(grid.is_initialized, 'Grid: Not initialized');
 
-            
+            let district_position = DistrictPosition {
+                row: row, col: col
+            };
 
-            grid.create_district();
-            
-
-
-            game.add_city();
-
-
-            let mut mayor: Mayor = MayorTrait::new(
-                game_id: game_id, player: caller, name: player_name
+            let district:  District = DistrictTrait::new(
+                game_id: game_id, 
+                district_id: district_id, 
+                grid_id: grid_id,
+                grid_x: grid_x,
+                grid_y:grid_y, 
+                grid_z:grid_z,
+                name: name, 
+                district_type: district_type,
+                owner: caller, 
+                district_position: district_position
             );
 
-            game.add_builder();
-        
-            //set!(world, (game));
+            city.district_count += 1;
 
+            
             world.write_model(@game);
 
-            world.write_model(@mayor);
-
+            world.write_model(@district);
 
             world.write_model(@city);
 
             // [Return] Game id
-            city_id
+            district_id
         }
 
- 
+        fn create_cell(
+            ref self: ContractState,
+            game_id: u32,
+            grid_id: u32,
+            district_id: u32,
+            x: u32,
+            y: u32,
+            z: u32,
+            row: u16,
+            col: u16,
+        ) -> u32 {
+
+            let mut world = self.world_default();
+          
+            let caller = get_caller_address();
+
+            let mut game: Game = world.read_model(game_id);
+            
+            // [Effect] Game
+            let cell_id = world.dispatcher.uuid();
+
+
+            let mut district: District = world.read_model((game_id,district_id,grid_id,caller));
+
+            assert(!district.is_locked, 'District locked');
+
+            assert(district.check_total_cells_occupied(),'Total cells reached');
+
+            let cell_position: CellPosition = CellPosition {
+                row: row,
+                col:col
+            };
+
+
+            let cell:  Cell = CellTrait::new(
+                game_id: game_id, 
+                district_id: district_id,
+                cell_id:cell_id, 
+                grid_x: x,
+                grid_y:y, 
+                grid_z:z,
+                owner: caller, 
+                cell_position: cell_position
+            );
+
+            let _: u32 = district.total_cells();
+
+            
+            world.write_model(@game);
+
+            world.write_model(@district);
+
+            world.write_model(@cell);
+
+            // [Return] Game id
+            cell_id
+        }
 
         fn transfer(ref self: ContractState, game_id: u32, new_admin: ContractAddress) {
 

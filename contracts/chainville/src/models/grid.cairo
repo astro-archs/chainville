@@ -21,6 +21,20 @@ pub struct GridPosition {
     pub col: u16,
 }
 
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct DistrictPosition {
+    pub row: u16,
+    pub col: u16,
+}
+
+
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct CellPosition {
+    pub row: u16,
+    pub col: u16,
+}
+
+
 // Cell structure - smallest unit in the grid
 #[derive(Copy, Drop, Serde, Debug)]
 #[dojo::model]
@@ -30,19 +44,21 @@ pub struct Cell {
     #[key]
     pub district_id: u32,          // Reference to the parent district
     #[key]
-    pub cell_id: felt252,          // Unique identifier for the cell (format: district_x_z)
+    pub cell_id: u32,          // Unique identifier for the cell (format: district_x_z)
+    #[key]
+    pub owner: ContractAddress,    // 
     
     // Cell position within district
     pub grid_x: u32,
     pub grid_y: u32,
     pub grid_z: u32,
+    pub cell_position: CellPosition,
     
     // Cell state
     pub is_occupied: bool,
     pub building_id: felt252,      // Empty if not occupied
     pub building_type: u8,         // 0 if not occupied
-    pub owner: ContractAddress,    // 0 if not owned
-    
+  
     // Visual properties
     pub height_offset: u16,        // Height offset for terrain variations
     pub terrain_type: u8,          // 0: normal, 1: water, 2: forest, etc.
@@ -67,13 +83,14 @@ pub struct District {
     pub grid_x: u32,
     pub grid_y: u32,
     pub grid_z: u32,
+    pub district_position: DistrictPosition,
     
     // District properties
     pub name: felt252,
     pub size: u32,                 // Size of the district (width/height)
     pub cells_per_side: u32,        // Number of cells per side of district
     pub total_cells: u32,          // Total number of cells in district
-    pub occupied_cells: u16,       // Number of occupied cells
+    pub occupied_cells: u32,       // Number of occupied cells
     
     // Specialization
     pub district_type: DistrictType,         // 0: mixed, 1: residential, 2: commercial, 3: industrial, etc.
@@ -249,55 +266,6 @@ pub impl GridImpl of GridTrait {
         
         // Return number of unlocked districts
         self.unlocked_districts
-    }
-    
-
-    
-    /// Create a new cell within a district
-    fn create_cell(
-        ref self: Grid,
-        district_id: u32,
-        grid_x: u32,
-        grid_y: u32,
-        grid_z: u32,
-        terrain_type: u8,
-    ) -> Cell {
-        // Ensure grid is initialized
-        assert(self.is_initialized, errors::GRID_NOT_INITIALIZED);
-        
-        // Ensure valid district
-        assert(district_id < self.district_count, errors::GRID_INVALID_DISTRICT);
-        
-        // Ensure valid cell coordinates
-        assert(grid_x < self.cells_per_district.into() && grid_z < self.cells_per_district.into(), errors::GRID_INVALID_CELL);
-        
-        // Generate a unique cell ID using format: district_x_z
-        let cell_id = PoseidonTrait::new()
-            .update(district_id.into())
-            .update(grid_x.into())
-            .update(grid_y.into())
-            .update(grid_z.into())
-            .finalize();
-        
-        // Get current timestamp
-        let current_time = get_block_timestamp();
-        
-        // Create and return cell
-        Cell {
-            game_id: self.game_id,
-            district_id,
-            cell_id,
-            grid_x,
-            grid_y,
-            grid_z,
-            is_occupied: false,
-            building_id: '',
-            building_type: 0,
-            owner: Zero::zero(),
-            height_offset: 0,
-            terrain_type,
-            last_update: current_time,
-        }
     }
     
     /// Unlock a new district ring around the center
@@ -1070,6 +1038,7 @@ pub impl DistrictImpl of DistrictTrait{
         name: felt252,
         district_type: DistrictType,
         owner: ContractAddress,
+        district_position: DistrictPosition
     ) -> District {
 
         // Get current timestamp
@@ -1077,20 +1046,21 @@ pub impl DistrictImpl of DistrictTrait{
         
 
         // Total cells calculation
-        let cells_per_side = self.cells_per_district;
-        let total_cells = cells_per_side * cells_per_side;
+        
+        let total_cells = CELLS_PER_DISTRICT * CELLS_PER_DISTRICT;
         
         // Create and return district
         District {
-            game_id: self.game_id,
+            game_id: game_id,
             district_id,
             grid_id,
             grid_x,
             grid_y,
             grid_z,
+            district_position,
             name,
-            size: self.district_size,
-            cells_per_side,
+            size: DISTRICT_SIZE,
+            cells_per_side: CELLS_PER_DISTRICT,
             total_cells,
             occupied_cells: 0,
             district_type,
@@ -1101,5 +1071,64 @@ pub impl DistrictImpl of DistrictTrait{
             last_update: current_time,
         }
     }
+
+
+    fn check_total_cells_occupied(self: District) -> bool{
+        self.occupied_cells <= self.total_cells
+    }
+
+
+    fn total_occupied_cells(ref self: District) -> u32 {
+
+        self.occupied_cells += 1;
+
+        self.last_update = get_block_timestamp();
+
+        self.occupied_cells
+
+    }
+
+}
+
+#[generate_trait]
+pub impl CellImpl of CellTrait{
+
+        
+    /// Create a new cell within a district
+    fn new(
+        game_id: u32,
+        district_id: u32,
+        cell_id: u32,
+        grid_x: u32,
+        grid_y: u32,
+        grid_z: u32,
+        owner: ContractAddress,
+        cell_position: CellPosition
+    ) -> Cell {
+
+
+        
+        // Get current timestamp
+        let current_time = get_block_timestamp();
+        
+        // Create and return cell
+        Cell {
+            game_id: game_id,
+            district_id,
+            cell_id,
+            grid_x,
+            grid_y,
+            grid_z,
+            cell_position,
+            is_occupied: false,
+            building_id: '',
+            building_type: 0,
+            owner: Zero::zero(),
+            height_offset: 0,
+            terrain_type:0, //o for flat
+            last_update: current_time,
+        }
+    }
+    
 
 }

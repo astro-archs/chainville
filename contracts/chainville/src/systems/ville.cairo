@@ -118,6 +118,8 @@ mod ville {
             );
 
             game.add_builder();
+
+            let _: u8 = mayor.cities_founded();
         
             //set!(world, (game));
 

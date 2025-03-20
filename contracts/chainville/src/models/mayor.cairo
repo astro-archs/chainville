@@ -251,7 +251,7 @@ pub impl MayorImpl of MayorTrait {
     }
     
     /// Updates mayor stats when a city is founded
-    fn city_founded(ref self: Mayor) {
+    fn city_founded(ref self: Mayor) -> u8{
         // Ensure mayor is active
         assert(self.active, errors::MAYOR_NOT_ACTIVE);
         
@@ -264,6 +264,8 @@ pub impl MayorImpl of MayorTrait {
         
         // Update last active time
         self.last_active = get_block_timestamp();
+
+        self.cities_founded
     }
     
     /// Updates mayor stats when a building is constructed
