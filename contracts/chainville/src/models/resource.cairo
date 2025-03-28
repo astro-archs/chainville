@@ -66,6 +66,52 @@ pub struct Resource {
     pub last_update: u64,            // Last update timestamp
 }
 
+
+/// Base properties for resources
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct BaseProperties {
+    pub width: u8,                // Width in cells
+    pub height: u8,               // Height in cells
+    pub build_cost: u64,          // Base cost to build
+    pub construction_time: u64,   // Base time to build (seconds)
+}
+
+/// Economic properties for resources
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct EconomicProperties {
+    pub maintenance_cost: u16,    // Base hourly maintenance cost
+    pub income: u16,              // Base hourly income generated
+    pub happiness_effect: i16,    // Effect on happiness (-100 to 100)
+}
+
+/// Capacity properties for resources
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct CapacityProperties {
+    pub population_capacity: u16, // Population supported (residential)
+    pub employment_capacity: u16, // Jobs provided (commercial/industrial)
+    pub water_capacity: u16,      // Water provided (utilities)
+    pub power_capacity: u16,      // Power provided (utilities)
+}
+
+/// Special effect properties for resources
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct EffectProperties {
+    pub pollution_effect: i16,    // Pollution generated or reduced
+    pub traffic_effect: u16,      // Traffic generated
+    pub crime_effect: i16,        // Effect on crime rate
+    pub land_value_effect: i16,   // Effect on land value
+}
+
+/// Complete resource metadata combining all property groups
+#[derive(Copy, Drop, Serde, Debug)]
+pub struct ResourceMetadata {
+    pub base: BaseProperties,
+    pub economic: EconomicProperties,
+    pub capacity: CapacityProperties,
+    pub effects: EffectProperties,
+}
+
+
 // Display properties will be handled by the client side
 
 // Error constants for resource operations

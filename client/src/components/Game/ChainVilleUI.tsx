@@ -1,5 +1,8 @@
-import { Scene } from "@babylonjs/core";
+import { Color4, Observable, Scene } from "@babylonjs/core";
 import {AdvancedDynamicTexture, Button, Container, Control, Ellipse, Grid, Rectangle, StackPanel, TextBlock,Image, ScrollViewer} from "@babylonjs/gui"
+// Import model categories
+import modelCategories from './models';
+import { ToastType } from "../../types/types";
 
 export class ChainVilleUI {
     private scene: Scene;
@@ -15,8 +18,19 @@ export class ChainVilleUI {
     private buildingInterface: Rectangle;
     private miniMap: Rectangle;
     private actionBar: Rectangle;
+    private actionGrid: Grid;
     
     private buildingSelectionPanel: Rectangle;
+
+        // Add to your UI class
+    private modelSelectPanel: Rectangle;
+    private modelGrid: Grid;
+    private activeCategory: string | null = null;
+    private modelContainer: StackPanel;
+    private dashboardPanel: Rectangle;
+
+    private selectedResource: { model: string, category: string } | null;
+
 
     // State
     private selectedBuilding: { name: string, image: string, description: string } | null;
@@ -58,6 +72,11 @@ export class ChainVilleUI {
 
     // Current View
     private currentView: string = "dashboard";
+    private isUserProfileVisibale = false;
+    private isCreateNavigationPanelVisible = false;
+    private isCreateMainDisplayVisible = false;
+
+    public onResourceSelected = new Observable();
     
     constructor(scene: Scene) {
         this.scene = scene;
@@ -70,6 +89,8 @@ export class ChainVilleUI {
         this.advancedTexture.addControl(this.mainContainer);
         
         this.createUI();
+
+        
     }
     
     private createUI(): void {
@@ -84,6 +105,11 @@ export class ChainVilleUI {
         
         // 4. Create CTA Buttons (Bottom)
         this.createCTAButtons();
+
+        this.createMainButtons();
+
+
+        this.initModelSelectionPanel();
     }
     
     private createDashboard(): void {
@@ -112,134 +138,85 @@ export class ChainVilleUI {
         this.navigationPanel.background = this.PANEL_COLOR;
         this.navigationPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         this.navigationPanel.thickness = 0;
+        this.navigationPanel.isVisible = false;
         this.mainContainer.addControl(this.navigationPanel);
         
-         // Create header container to hold logo and title
-         const headerContainer = new Rectangle("headerContainer");
-         headerContainer.width = "100%";
-         headerContainer.height = "60px";
-         headerContainer.thickness = 0;
-         headerContainer.background = this.BACKGROUND_COLOR;
-         headerContainer.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-         headerContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-         this.navigationPanel.addControl(headerContainer);
-         
-        // Create grid for flexible layout
-        const headerGrid = new Grid("headerGrid");
-        headerGrid.addColumnDefinition(0.25); // For logo
-        headerGrid.addColumnDefinition(0.75); // For title
-        headerGrid.width = 1;
-        headerGrid.height = 1;
-        headerContainer.addControl(headerGrid);
+
         
-        // App logo cell
-        const logoContainer = new Rectangle("logoContainer");
-        logoContainer.thickness = 0;
-        logoContainer.background = "transparent"; 
+        // Navigation options definition
+        const navOptions = [
+            { text: "📊 Resources", id: "resources" },
+            { text: "💰 Economy", id: "economy" },
+            { text: "🏆 Leaderboard", id: "leaderboard" },
+            { text: "⚙️ Settings", id: "settings" }
+        ];
+
+        // Navigation buttons - using a more straightforward approach
+        const navPanel = new StackPanel("navPanel");
+        navPanel.width = "100%";
+        navPanel.top = "70px"; // Position below header
+        navPanel.spacing = 10; // Space between buttons
+        navPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+        navPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+        navPanel.paddingLeft = "10px";
+        navPanel.paddingRight = "10px";
+        this.navigationPanel.addControl(navPanel);
         
-        // App logo
-        const logoText = new TextBlock("logoText");
-        logoText.text = "🏙️";
-        logoText.fontSize = 36;
-        logoText.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        logoText.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-        logoContainer.addControl(logoText);
-        
-        // App title cell
-        const titleContainer = new Rectangle("titleContainer");
-        titleContainer.thickness = 0;
-        titleContainer.background = "transparent";
-        
-        // App title
-        const titleText = new TextBlock("titleText");
-        titleText.text = "ChainVille";
-        titleText.color = this.CYAN_COLOR;
-        titleText.fontSize = 28;
-        titleText.fontStyle = "bold";
-        titleText.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-        titleText.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-        titleContainer.addControl(titleText);
-        
-        // Add containers to grid
-        headerGrid.addControl(logoContainer, 0, 0);
-        headerGrid.addControl(titleContainer, 0, 1);
-        
-                // Navigation options definition
-                const navOptions = [
-                    { text: "🏠 Home", id: "home" },
-                    { text: "🌆 City Overview", id: "cityOverview" },
-                    { text: "📊 Resources", id: "resources" },
-                    { text: "💰 Economy", id: "economy" },
-                    { text: "🏆 Leaderboard", id: "leaderboard" },
-                    { text: "⚙️ Settings", id: "settings" }
-                ];
-        
-                // Navigation buttons - using a more straightforward approach
-                const navPanel = new StackPanel("navPanel");
-                navPanel.width = "100%";
-                navPanel.top = "70px"; // Position below header
-                navPanel.spacing = 10; // Space between buttons
-                navPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-                navPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-                navPanel.paddingLeft = "10px";
-                navPanel.paddingRight = "10px";
-                this.navigationPanel.addControl(navPanel);
-                
-                navOptions.forEach((option) => {
-                    // Create button container
-                    const navButton = new Rectangle(`navBtn-${option.id}`);
-                    navButton.width = "230px";
-                    navButton.height = "50px";
-                    navButton.cornerRadius = 8;
-                    navButton.thickness = 0;
-                    navButton.background = this.PANEL_COLOR;
-                    navButton.isPointerBlocker = true;
-                    
-                    // Create horizontal stack panel for icon and text
-                    const buttonContentPanel = new StackPanel(`buttonContent-${option.id}`);
-                    buttonContentPanel.isVertical = false; // Horizontal layout
-                    buttonContentPanel.width = "100%";
-                    buttonContentPanel.height = "100%";
-                    navButton.addControl(buttonContentPanel);
-                    
-                    // Icon
-                    const iconText = new TextBlock(`icon-${option.id}`);
-                    iconText.text = option.text.split(" ")[0]; // Get emoji
-                    iconText.width = "50px";
-                    iconText.height = "100%";
-                    iconText.fontSize = 24;
-                    iconText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-                    iconText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-                    buttonContentPanel.addControl(iconText);
-                    
-                    // Text
-                    const labelText = new TextBlock(`label-${option.id}`);
-                    labelText.text = option.text.split(" ").slice(1).join(" "); // Get text without emoji
-                    labelText.width = "180px";
-                    labelText.height = "100%";
-                    labelText.color = this.TEXT_COLOR;
-                    labelText.fontSize = 18;
-                    labelText.fontFamily = "Arial";
-                    labelText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
-                    labelText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
-                    buttonContentPanel.addControl(labelText);
-                    
-                    // Hover and click events
-                    navButton.onPointerEnterObservable.add(() => {
-                        navButton.background = this.PRIMARY_COLOR;
-                    });
-                    
-                    navButton.onPointerOutObservable.add(() => {
-                        navButton.background = this.PANEL_COLOR;
-                    });
-                    
-                    navButton.onPointerUpObservable.add(() => {
-                        this.handleNavigation(option.id);
-                    });
-                    
-                    // Add button to navigation panel
-                    navPanel.addControl(navButton);
-                });
+        navOptions.forEach((option) => {
+            // Create button container
+            const navButton = new Rectangle(`navBtn-${option.id}`);
+            navButton.width = "230px";
+            navButton.height = "50px";
+            navButton.cornerRadius = 8;
+            navButton.thickness = 0;
+            navButton.background = this.PANEL_COLOR;
+            navButton.isPointerBlocker = true;
+            
+            // Create horizontal stack panel for icon and text
+            const buttonContentPanel = new StackPanel(`buttonContent-${option.id}`);
+            buttonContentPanel.isVertical = false; // Horizontal layout
+            buttonContentPanel.width = "100%";
+            buttonContentPanel.height = "100%";
+            navButton.addControl(buttonContentPanel);
+            
+            // Icon
+            const iconText = new TextBlock(`icon-${option.id}`);
+            iconText.text = option.text.split(" ")[0]; // Get emoji
+            iconText.width = "50px";
+            iconText.height = "100%";
+            iconText.fontSize = 24;
+            iconText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+            iconText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+            buttonContentPanel.addControl(iconText);
+            
+            // Text
+            const labelText = new TextBlock(`label-${option.id}`);
+            labelText.text = option.text.split(" ").slice(1).join(" "); // Get text without emoji
+            labelText.width = "180px";
+            labelText.height = "100%";
+            labelText.color = this.TEXT_COLOR;
+            labelText.fontSize = 18;
+            labelText.fontFamily = "Arial";
+            labelText.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+            labelText.textVerticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+            buttonContentPanel.addControl(labelText);
+            
+            // Hover and click events
+            navButton.onPointerEnterObservable.add(() => {
+                navButton.background = this.PRIMARY_COLOR;
+            });
+            
+            navButton.onPointerOutObservable.add(() => {
+                navButton.background = this.PANEL_COLOR;
+            });
+            
+            navButton.onPointerUpObservable.add(() => {
+                this.handleNavigation(option.id);
+            });
+            
+            // Add button to navigation panel
+            navPanel.addControl(navButton);
+        });
     }
     
     private createMainDisplay(): void {
@@ -251,11 +228,14 @@ export class ChainVilleUI {
         dashboardPanel.color = this.PRIMARY_COLOR;
         dashboardPanel.cornerRadius = 10;
         dashboardPanel.background = this.PANEL_COLOR;
-        dashboardPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        dashboardPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
         dashboardPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         dashboardPanel.top = "300px";
+        dashboardPanel.isVisible = false;
         dashboardPanel.alpha = 0.9; // Slightly transparent
         this.mainContainer.addControl(dashboardPanel);
+
+        this.dashboardPanel = dashboardPanel;
         
         // Create a grid for the entire dashboard content
         const mainGrid = new Grid("mainGrid");
@@ -445,12 +425,13 @@ private createUserProfile(): void {
     this.userProfile.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
     this.userProfile.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
     this.userProfile.top = "65px";
-    this.userProfile.left = "-20px"; // Use left offset instead of right
+    this.userProfile.left = "-60px"; // Use left offset instead of right
     this.userProfile.thickness = 1;
     this.userProfile.color = this.SECONDARY_COLOR;
     this.userProfile.cornerRadius = 10;
     this.userProfile.background = this.PANEL_COLOR;
     this.userProfile.alpha = 0.9;
+    this.userProfile.isVisible = false
     this.mainContainer.addControl(this.userProfile);
     
     // Create main grid layout exactly matching the sketch
@@ -562,15 +543,194 @@ private createUserProfile(): void {
     profileGrid.addControl(avatarContainer, 0, 0);
     profileGrid.addControl(rightSideGrid, 0, 1);
 }
+
+    private createMainButtons(): void {
+
+
+        // private isUserProfileVisibale = false;
+        // private isCreateNavigationPanelVisible = false;
+        // private isCreateMainDisplayVisible = false;
+
+        const buttonHome = new Rectangle(`home-button-main`);
+        buttonHome.width = "30px";
+        buttonHome.height = "30px";
+        buttonHome.cornerRadius = 5;
+        buttonHome.thickness = 2;
+        buttonHome.color = this.PANEL_COLOR;
+        buttonHome.background = this.BACKGROUND_COLOR;
+        buttonHome.top = `65px`;
+        buttonHome.left = '10px'
+        buttonHome.shadowBlur = 5;
+        buttonHome.shadowColor = "black";
+        buttonHome.shadowOffsetX = 2;
+        buttonHome.shadowOffsetY = 2;
+        buttonHome.isPointerBlocker = true;
+        buttonHome.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP
+        buttonHome.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT
+            
+        const buttonHomeText = new TextBlock(`home-button-text-main`);
+        buttonHomeText.text = "🏠";
+        buttonHomeText.color = this.TEXT_COLOR;
+        buttonHomeText.fontSize = 18;
+        buttonHomeText.fontStyle = "bold";
+        buttonHome.addControl(buttonHomeText);
+        
+        buttonHome.onPointerEnterObservable.add(() => {
+            buttonHome.background = this.PRIMARY_COLOR;
+            buttonHome.scaleX = 1.05;
+            buttonHome.scaleY = 1.05;
+        });
+        
+        buttonHome.onPointerOutObservable.add(() => {
+            buttonHome.background = this.BACKGROUND_COLOR;
+            buttonHome.scaleX = 1;
+            buttonHome.scaleY = 1;
+        });
+        
+        buttonHome.onPointerUpObservable.add(() => {
+            this.dashboardPanel.isVisible = false;
+            this.navigationPanel.isVisible = !this.navigationPanel.isVisible; 
+        });
+
+            // const buttonNavigation = new Rectangle(`navigation-button-main`);
+            // buttonNavigation.width = "30px";
+            // buttonNavigation.height = "30px";
+            // buttonNavigation.cornerRadius = 50;
+            // buttonNavigation.thickness = 0;
+            // buttonNavigation.color = this.PANEL_COLOR;
+            // buttonNavigation.background = this.BACKGROUND_COLOR;
+            // buttonNavigation.top = `70 px`;
+            // buttonNavigation.shadowBlur = 5;
+            // buttonNavigation.shadowColor = "black";
+            // buttonNavigation.shadowOffsetX = 2;
+            // buttonNavigation.shadowOffsetY = 2;
+            // buttonNavigation.isPointerBlocker = true;
+                
+            // const buttonNavigationText = new TextBlock(`navigation-button-text-main`);
+            // buttonNavigationText.text = config.text;
+            // buttonNavigationText.color = this.TEXT_COLOR;
+            // buttonNavigationText.fontSize = 18;
+            // buttonNavigationText.fontStyle = "bold";
+            // buttonNavigation.addControl(buttonNavigationText);
+            
+            // buttonNavigation.onPointerEnterObservable.add(() => {
+            //     buttonNavigation.background = this.PRIMARY_COLOR;
+            //     buttonNavigation.scaleX = 1.05;
+            //     buttonNavigation.scaleY = 1.05;
+            // });
+            
+            // buttonNavigation.onPointerOutObservable.add(() => {
+            //     buttonNavigation.background = this.BACKGROUND_COLOR;
+            //     buttonNavigation.scaleX = 1;
+            //     buttonNavigation.scaleY = 1;
+            // });
+            
+            // buttonNavigation.onPointerUpObservable.add(() => {
+                
+            // });
+
+
+            const buttonDashboard = new Rectangle(`dashboard-button-main`);
+            buttonDashboard.width = "30px";
+            buttonDashboard.height = "30px";
+            buttonDashboard.cornerRadius = 5;
+            buttonDashboard.thickness = 2;
+            buttonDashboard.color = this.PANEL_COLOR;
+            buttonDashboard.background = this.BACKGROUND_COLOR;
+            buttonDashboard.top = `100px`;
+            buttonDashboard.left = '10px'
+            buttonDashboard.shadowBlur = 5;
+            buttonDashboard.shadowColor = "black";
+            buttonDashboard.shadowOffsetX = 2;
+            buttonDashboard.shadowOffsetY = 2;
+            buttonDashboard.isPointerBlocker = true;
+            buttonDashboard.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP
+            buttonDashboard.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT
+                
+            const buttonDashboardText = new TextBlock(`dashboard-button-text-main`);
+            buttonDashboardText.text = "🏙️";
+            buttonDashboardText.color = this.TEXT_COLOR;
+            buttonDashboardText.fontSize = 18;
+            buttonDashboardText.fontStyle = "bold";
+            buttonDashboard.addControl(buttonDashboardText);
+            
+            buttonDashboard.onPointerEnterObservable.add(() => {
+                buttonDashboard.background = this.PRIMARY_COLOR;
+                buttonDashboard.scaleX = 1.05;
+                buttonDashboard.scaleY = 1.05;
+            });
+            
+            buttonDashboard.onPointerOutObservable.add(() => {
+                buttonDashboard.background = this.BACKGROUND_COLOR;
+                buttonDashboard.scaleX = 1;
+                buttonDashboard.scaleY = 1;
+            });
+            
+            buttonDashboard.onPointerUpObservable.add(() => {
+                
+                this.navigationPanel.isVisible = false;
+                this.dashboardPanel.isVisible = !this.dashboardPanel.isVisible;
+            });
+
+            const buttonProfile = new Rectangle(`profile-button-main`);
+            buttonProfile.width = "30px";
+            buttonProfile.height = "30px";
+            buttonProfile.cornerRadius = 5;
+            buttonProfile.thickness = 2;
+            buttonProfile.color = this.PANEL_COLOR;
+            buttonProfile.background = this.BACKGROUND_COLOR;
+            buttonProfile.top = `65px`;
+            buttonProfile.left = '-20px'
+            buttonProfile.shadowBlur = 5;
+            buttonProfile.shadowColor = "black";
+            buttonProfile.shadowOffsetX = 2;
+            buttonProfile.shadowOffsetY = 2;
+            buttonProfile.isPointerBlocker = true;
+            buttonProfile.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP
+            buttonProfile.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT
+            
+                
+            const buttonProfileText = new TextBlock(`profile-button-text-main`);
+            buttonProfileText.text = "ℹ️";
+            buttonProfileText.color = this.TEXT_COLOR;
+            buttonProfileText.fontSize = 18;
+            buttonProfileText.fontStyle = "bold";
+            buttonProfile.addControl(buttonProfileText);
+            
+            buttonProfile.onPointerEnterObservable.add(() => {
+                buttonProfile.background = this.PRIMARY_COLOR;
+                buttonProfile.scaleX = 1.05;
+                buttonProfile.scaleY = 1.05;
+            });
+            
+            buttonProfile.onPointerOutObservable.add(() => {
+                buttonProfile.background = this.BACKGROUND_COLOR;
+                buttonProfile.scaleX = 1;
+                buttonProfile.scaleY = 1;
+            });
+            
+            buttonProfile.onPointerUpObservable.add(() => {
+               
+                this.isUserProfileVisibale = !this.isUserProfileVisibale;
+                this.userProfile.isVisible = this.isUserProfileVisibale;
+
+            });
+
+            this.mainContainer.addControl(buttonDashboard);
+            this.mainContainer.addControl(buttonHome);
+            this.mainContainer.addControl(buttonProfile);
+
+    }
     
     private createCTAButtons(): void {
         // Create a container rectangle for the CTA buttons
         this.ctaButtons = new Rectangle("ctaButtons");
-        this.ctaButtons.width = "280px";
+        this.ctaButtons.width = "32px";
         this.ctaButtons.height = "180px";
         this.ctaButtons.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
         this.ctaButtons.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
         this.ctaButtons.top = "110px";
+        this.ctaButtons.left = "-20px"
        //his.ctaButtons.right = "20px";
         this.ctaButtons.thickness = 0;
         this.ctaButtons.cornerRadius = 5;
@@ -578,16 +738,16 @@ private createUserProfile(): void {
         
         // Create main action buttons
         const buttonConfigs = [
-            { text: "🏗️ Start Building", id: "startBuilding" },
-            { text: "📦 Manage Resources", id: "manageResources" },
-            { text: "⬆️ Upgrade City", id: "upgradeCity" }
+            { text: "🏗️", id: "startBuilding" },
+            { text: "📦 ", id: "manageResources" },
+            { text: "⬆️ ", id: "upgradeCity" }
         ];
         
         buttonConfigs.forEach((config, index) => {
             const button = new Rectangle(`ctaBtn-${config.id}`);
-            button.width = "280px";
-            button.height = "50px";
-            button.cornerRadius = 10;
+            button.width = "30px";
+            button.height = "30px";
+            button.cornerRadius = 5;
             button.thickness = 2;
             button.color = this.PANEL_COLOR;
             button.background = this.BACKGROUND_COLOR;
@@ -821,7 +981,7 @@ private createUserProfile(): void {
         
         // Action bar (bottom)
         const actionBar = new Rectangle("actionBar");
-        actionBar.width = "600px";
+        actionBar.width = "50%"; // Wider to accommodate scrolling
         actionBar.height = "60px";
         actionBar.cornerRadius = 10;
         actionBar.color = this.PRIMARY_COLOR;
@@ -832,53 +992,400 @@ private createUserProfile(): void {
         actionBar.top = "-20px";
         actionBar.alpha = 0.9;
         actionBar.isVisible = false;
-        
-        // Add action buttons
+
+        // Create a ScrollViewer to contain the action buttons
+        const actionScroller = new ScrollViewer("actionScroller");
+        actionScroller.width = "98%";
+        actionScroller.height = "55px";
+        actionScroller.thickness = 0;
+      //  actionScroller.horizontalBar = 0.5; // Show horizontal scrollbar
+        actionScroller.barSize = 10;
+        actionScroller.wheelPrecision = 20;
+        actionScroller.thumbLength = 0.4;
+        actionScroller.thumbHeight = 0.8;
+        actionScroller.color = this.BACKGROUND_COLOR;
+       // actionScroller.horizontalAlignment = 0.5;
+        actionBar.addControl(actionScroller);
+
+        // Add action buttons in a grid with many columns
         const actionGrid = new Grid("actionGrid");
-        actionGrid.addColumnDefinition(0.2);
-        actionGrid.addColumnDefinition(0.2);
-        actionGrid.addColumnDefinition(0.2);
-        actionGrid.addColumnDefinition(0.2);
-        actionGrid.addColumnDefinition(0.2);
-        actionGrid.width = 0.9;
-        actionGrid.height = 0.8;
-        actionBar.addControl(actionGrid);
-        
+        actionGrid.paddingLeft = "5px";
+        actionGrid.paddingRight = "5px";
+
         const actions = [
-            { icon: "🔨", name: "Build" },
-            { icon: "🔧", name: "Modify" },
+            { icon: "🏘️", name: "Residential" },
+            { icon: "🏬", name: "Commercial" },
+            { icon: "🏭", name: "Industrial" },
+            { icon: "🏢", name: "Office" },
+            { icon: "💧", name: "Water" },
+            { icon: "⚡", name: "Electricity" },
+            { icon: "🛣️", name: "Roads" },
+            { icon: "🚌", name: "Transport" },
+            { icon: "🏥", name: "Healthcare" },
+            { icon: "🚒", name: "Fire Dept" },
+            { icon: "👮", name: "Police" },
+            { icon: "🎓", name: "Education" },
+            { icon: "🌳", name: "Parks" },
+            { icon: "🏛️", name: "Unique" },
+            { icon: "🚗", name: "Vehicles" },
+            { icon: "🏮", name: "Props" },
             { icon: "🧹", name: "Clear" },
-            { icon: "🔍", name: "Inspect" },
-            { icon: "📊", name: "Stats" }
+            { icon: "📊", name: "Stats" },
+            { icon: "💰", name: "Treasury" }
         ];
-        
+
+                // Set the grid width based on number of actions (each button is now 30px wide)
+        actionGrid.width = `${actions.length * 45}px`;
+        actionGrid.height = "45px";
+
+        // Add column definitions dynamically based on the number of actions
+        actions.forEach(() => {
+            actionGrid.addColumnDefinition(30, true); // Fixed width in pixels for each column (reduced from 100)
+        });
+
+        actionScroller.addControl(actionGrid);
+
         actions.forEach((action, index) => {
-            const actionButton = Button.CreateSimpleButton(`action-${index}`, `${action.icon}\n${action.name}`);
-            actionButton.width = "90px";
-            actionButton.height = "40px";
+            // Create buttons with only the icon
+            const actionButton = Button.CreateSimpleButton(`action-${index}`, `${action.icon}`);
+            actionButton.width = "30px"; // Reduced from 90px
+            actionButton.height = "30px";
             actionButton.color = this.TEXT_COLOR;
-            actionButton.cornerRadius = 8;
+            actionButton.cornerRadius = 5;
             actionButton.background = this.BACKGROUND_COLOR;
-            actionButton.fontSize = 14;
-            
+            actionButton.fontSize = 16; // Slightly larger font for better emoji visibility
+            actionButton.thickness = 0;
+
+            // Store the action name as a metadata property for later reference
+            actionButton.metadata = { actionName: action.name };
+
             actionButton.onPointerEnterObservable.add(() => {
                 actionButton.background = this.PRIMARY_COLOR;
             });
-            
+
             actionButton.onPointerOutObservable.add(() => {
                 actionButton.background = this.BACKGROUND_COLOR;
             });
+
+            // Add click handling
+            actionButton.onPointerClickObservable.add(() => {
+                this.handleActionClick(action.name,actions);
+            });
+
+            const tooltip = new Rectangle("tooltip");
+            tooltip.background = this.BACKGROUND_COLOR;
+            tooltip.color = this.CYAN_COLOR;
+            tooltip.widthInPixels = 150;
+            tooltip.cornerRadius = 10;
+            tooltip.heightInPixels = 30;
+            tooltip.thickness = 0;
+            tooltip.zIndex = 100;
+            actionBar.addControl(tooltip);
+            const textBlock = new TextBlock("textTooltip", "");
+            tooltip.addControl(textBlock);
+            tooltip.isVisible = false;
+
             
+            // Show/hide tooltip on hover
+            actionButton.onPointerEnterObservable.add(() => {
+                tooltip.isVisible = true;
+                textBlock.text =action.name
+
+                                // Get button's absolute position
+                const buttonX = actionButton._currentMeasure.left;
+                const buttonY = actionButton._currentMeasure.top;
+
+                // Get parent’s absolute position (assuming both share same parent)
+                const parentX = actionButton.parent?._currentMeasure.left ?? 0;
+                const parentY = actionButton.parent?._currentMeasure.top ?? 0;
+
+                // Relative position inside the parent
+                const relativeX = buttonX - parentX;
+                const relativeY = buttonY - parentY;
+
+                // Apply tooltip offset from the button
+                tooltip.left = relativeX < 252 ? (-(relativeX - ( 0.65 * relativeX  ))) - 240 + "px":(-(relativeX - ( 0.65 * relativeX  ))) + 240 + "px" ;
+                tooltip.top = (relativeY + 10) + "px";
+
+                console.log(-(relativeX - ( 0.65 * relativeX  )) + "px", relativeX, actionButton.left)
+            });
+
+            actionButton.onPointerOutObservable.add(() => {
+                tooltip.isVisible = false;
+            });
+
             actionGrid.addControl(actionButton, 0, index);
         });
-        
+
         this.mainContainer.addControl(actionBar);
-        
+
         // Store the action bar reference for visibility toggling
         this.actionBar = actionBar;
+        this.actionGrid = actionGrid;
     }
 
 
+        // Add this method to your class to handle action clicks
+    private handleActionClick(actionName: string,actions: {
+        icon: string;
+        name: string;
+    }[]): void {
+        console.log(`Action clicked: ${actionName}`);
+        
+        // Reset active button highlighting
+        for (let i = 0; i < actions.length; i++) {
+            const btn = this.actionGrid.getChildByName(`action-${i}`) as Button;
+            if (btn) {
+                btn.background = this.BACKGROUND_COLOR;
+            }
+        }
+        
+        // Find and highlight the clicked button
+        const clickedIndex = actions.findIndex(a => a.name === actionName);
+        if (clickedIndex >= 0) {
+            const clickedBtn = this.actionGrid.getChildByName(`action-${clickedIndex}`) as Button;
+            if (clickedBtn) {
+                clickedBtn.background = this.SECONDARY_COLOR;
+            }
+        }
+        
+        // Handle specific actions
+        switch(actionName) {
+            case "Clear":
+                //this.activateClearMode();
+                break;
+            case "Stats":
+                //this.showStatsPanel();
+                break;
+            case "Treasury":
+                //this.showTreasuryPanel();
+                break;
+            default:
+                // For building categories
+                this.activateBuildingCategory(actionName);
+                break;
+        }
+    }
+
+                    // Update activateBuildingCategory method to show model selection
+                private activateBuildingCategory(category: string): void {
+                    console.log(`Activating building category: ${category}`);
+                    
+                    // Reset active button highlighting (assuming this code exists)
+                    if (this.activeCategory !== category) {
+                        this.activeCategory = category;
+                        this.populateModelGrid(category);
+                        this.showModelSelectPanel();
+                    } else {
+                        // If clicking the same category, toggle the panel visibility
+                        if (this.modelSelectPanel.isVisible) {
+                            this.hideModelSelectPanel();
+                            this.activeCategory = null;
+                        } else {
+                            this.showModelSelectPanel();
+                        }
+                    }
+                }
+
+                        // Initialize the model selection panel
+                private initModelSelectionPanel(): void {
+                    // Model selection panel (will appear above the action bar when a category is selected)
+                    this.modelSelectPanel = new Rectangle("modelSelectPanel");
+                    this.modelSelectPanel.width = "50%";
+                    this.modelSelectPanel.height = "130px"; 
+                    this.modelSelectPanel.cornerRadius = 10;
+                    this.modelSelectPanel.color = this.PRIMARY_COLOR;
+                    this.modelSelectPanel.thickness = 2;
+                    this.modelSelectPanel.background = this.PANEL_COLOR;
+                    this.modelSelectPanel.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+                    this.modelSelectPanel.verticalAlignment = Control.VERTICAL_ALIGNMENT_BOTTOM;
+                    this.modelSelectPanel.top = "-85px"; // Position above the action bar
+                    this.modelSelectPanel.alpha = 0.95;
+                    this.modelSelectPanel.isVisible = false;
+                    
+                    // Create a ScrollViewer with horizontal scrolling enabled
+                    const modelScroller = new ScrollViewer("modelScroller");
+                    modelScroller.width = "100%";
+                    modelScroller.height = "110px"; // Reduced height for horizontal layout
+                    modelScroller.barSize = 10;
+                    modelScroller.wheelPrecision = 20;
+                    modelScroller.thumbLength = 0.4;
+                    modelScroller.thumbHeight = 0.8;
+                    modelScroller.color =this.BACKGROUND_COLOR;
+                    modelScroller.background = this.BACKGROUND_COLOR;
+                    modelScroller.thickness = 0;
+                    modelScroller.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+                    modelScroller.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+                    
+                    // Configure scroll viewer for horizontal scrolling
+                    // modelScroller.horizontalScrollBarVisibility = ScrollViewer.HORIZONTAL_SCROLLBAR_VISIBLE;
+                    // modelScroller.verticalScrollBarVisibility = ScrollViewer.VERTICAL_SCROLLBAR_HIDDEN;
+                    
+                    this.modelSelectPanel.addControl(modelScroller);
+                    
+                    // Create StackPanel for model options instead of Grid
+                    this.modelContainer = new StackPanel("modelStackPanel");
+                    this.modelContainer.isVertical = false; // Horizontal layout
+                    this.modelContainer.width = "100%"; // Will be adjusted when populated
+                    this.modelContainer.height = "100px";
+                    this.modelContainer.spacing = 10; // Add space between models
+                    this.modelContainer.paddingLeft = "10px";
+                    this.modelContainer.paddingRight = "10px";
+                    this.modelContainer.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+                    this.modelContainer.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+                    
+                    // Add StackPanel to ScrollViewer
+                    modelScroller.addControl(this.modelContainer);
+                    this.mainContainer.addControl(this.modelSelectPanel);
+                    
+                    // Add a "close" button to hide the model panel
+                    const closeButton = Button.CreateSimpleButton("closeModelPanel", "✕");
+                    closeButton.width = "20px";
+                    closeButton.height = "20px";
+                    closeButton.color = this.TEXT_COLOR;
+                    closeButton.cornerRadius = 15;
+                    closeButton.background = this.PRIMARY_COLOR;
+                    closeButton.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_RIGHT;
+                    closeButton.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+                    closeButton.thickness = 0;
+                    closeButton.top = "5px";
+                    closeButton.onPointerClickObservable.add(() => {
+                        this.hideModelSelectPanel();
+                    });
+                    this.modelSelectPanel.addControl(closeButton);
+                }
+
+                // Populate models using StackPanel instead of Grid
+                private populateModelGrid(category: string): void {
+                    console.log(`Populating models for category: ${category}`);
+                    
+                    // Clear existing models
+                    this.modelContainer.clearControls();
+                    
+                    // Get models for the selected category
+                    const models = modelCategories[category] || [];
+                    
+                    if (models.length === 0) {
+                        console.log("No models found in category:", category);
+                        return;
+                    }
+                    
+                    console.log(`Found ${models.length} models in category: ${category}`);
+                    
+                    // Set width based on number of models (each 100px wide + 10px spacing)
+                    const totalWidth = models.length * 110; // 100px per model + 10px spacing
+                    this.modelContainer.width = `${totalWidth}px`;
+                    
+                    // Add each model to the stack panel
+                    models.forEach((modelFile, index) => {
+                        // Get model name without extension
+                        const modelName = this.getModelNameWithoutExtension(modelFile);
+                        
+                        // Create model container
+                        const modelContainer = new Rectangle(`model-${index}-container`);
+                        modelContainer.width = "100px";
+                        modelContainer.height = "100px";
+                        modelContainer.thickness = 0;
+                        modelContainer.cornerRadius = 8;
+                        modelContainer.background = this.BACKGROUND_COLOR;
+                        
+                        // Create model image
+                        const modelImage = new Image(`model-${index}-image`, `/images/${modelName}.png`);
+                        modelImage.width = "80px";
+                        modelImage.height = "80px";
+                        modelImage.stretch = Image.STRETCH_UNIFORM;
+                        modelImage.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+                        modelImage.verticalAlignment = Control.VERTICAL_ALIGNMENT_CENTER;
+                        modelContainer.addControl(modelImage);
+                        
+                        // Create tooltip for model name
+                        const modelTooltip = new TextBlock(`model-${index}-tooltip`, modelName);
+                        modelTooltip.color = this.TEXT_COLOR;
+                        modelTooltip.fontSize = 12;
+                        modelTooltip.height = "20px";
+                        modelTooltip.paddingTop = "2px";
+                        modelTooltip.paddingBottom = "2px";
+                        modelTooltip.paddingLeft = "4px";
+                        modelTooltip.paddingRight = "4px";
+                        //modelTooltip.background = "#000000AA";
+                        //modelTooltip.cornerRadius = 3;
+                        modelTooltip.isVisible = false;
+                        this.mainContainer.addControl(modelTooltip);
+                        
+                        // Show/hide tooltip on hover
+                        modelContainer.onPointerEnterObservable.add(() => {
+                            modelTooltip.isVisible = true;
+                            
+                            // Position tooltip above the model container
+                            const containerRect = modelContainer._currentMeasure;
+                            modelTooltip.leftInPixels = containerRect.left + containerRect.width/2;
+                            modelTooltip.topInPixels = containerRect.top - 25;
+                            
+                            modelTooltip.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+                            modelTooltip.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+                            
+                            // Highlight on hover
+                            modelContainer.color = this.PRIMARY_COLOR;
+                            modelContainer.thickness = 2;
+                            modelContainer.background = this.BACKGROUND_COLOR;
+                        });
+                        
+                        modelContainer.onPointerOutObservable.add(() => {
+                            modelTooltip.isVisible = false;
+                            
+                            // Reset highlighting
+                            modelContainer.color = "transparent";
+                            modelContainer.thickness = 0;
+                            modelContainer.background = this.BACKGROUND_COLOR;
+                        });
+                        
+                        // Handle model selection
+                        modelContainer.onPointerClickObservable.add(() => {
+                            this.selectModel(modelFile, category);
+                            console.log(`Selected model: ${modelName}`);
+                        });
+                        
+                        // Add model container to the stack panel
+                        this.modelContainer.addControl(modelContainer);
+                        console.log(`Added model ${modelName} to stack panel`);
+                    });
+                    
+                    // Force update
+                    this.modelContainer._markAsDirty();
+                    
+                    console.log(`Stack panel populated with ${models.length} models`);
+                }
+
+        // Helper function to get model name without extension
+        private getModelNameWithoutExtension(filename: string): string {
+            return filename.replace('.glb', '');
+        }
+
+        // Select a model - implement the functionality to place or use the selected model
+        private selectModel(modelFile: string, category: string): void {
+            console.log(`Selected model: ${modelFile} from category: ${category}`);
+            // Implement model selection functionality here
+            // This could place the model in the scene, prepare it for placement, etc.
+
+            this.selectedResource = {
+                model: modelFile,
+                category: category
+            }
+            
+            // Optionally hide the panel after selection
+            this.hideModelSelectPanel();
+            this.enableBuildingPlacementMode();
+        }
+
+        // Show model selection panel
+        private showModelSelectPanel(): void {
+            this.modelSelectPanel.isVisible = true;
+        }
+
+        // Hide model selection panel
+        private hideModelSelectPanel(): void {
+            this.modelSelectPanel.isVisible = false;
+        }
 
     private showBuildingsInCategory(categoryName: string): void {
         // Close previous building selection panel if open
@@ -1133,6 +1640,23 @@ private createUserProfile(): void {
         // Optionally close the building selection panel
         // this.buildingSelectionPanel.isVisible = false;
     }
+
+
+    public getSelectedResource(): {
+        model: string,
+        category: string
+    } | null {
+
+        if (this.selectedResource) {
+            this.onResourceSelected.notifyObservers(this.selectedResource);
+          }
+
+        return this.selectedResource
+    }
+
+    public resetSelectedResource() : void {
+        this.selectedResource = null;
+    }
     
     // Method to enable building placement mode
     private enableBuildingPlacementMode(): void {
@@ -1140,42 +1664,49 @@ private createUserProfile(): void {
         // For example, creating a ghost building that follows the mouse
         // and allowing the user to click to place it
         
-        console.log(`Building placement mode enabled for: ${this.selectedBuilding?.name}`);
+        if (this.selectedResource){
+            //console.log(`Building placement mode enabled for: ${this.selectedBuilding?.name}`);
+
+            const name = this.getName(this.selectedResource.model);
         
-        // Show a notification or change cursor to indicate building placement mode
-        const notification = new TextBlock("placementNotification");
-        notification.text = `Click on the map to place ${this.selectedBuilding?.name}`;
-        notification.color = this.ACCENT_COLOR;
-        notification.fontSize = 16;
-        notification.height = "30px";
-        notification.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        notification.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
-        notification.top = "70px";
-        notification.outlineWidth = 1;
-        notification.outlineColor = "black";
-        
-        // Remove after a few seconds
-        setTimeout(() => {
-            this.mainContainer.removeControl(notification);
-        }, 3000);
-        
-        this.mainContainer.addControl(notification);
+            // Show a notification or change cursor to indicate building placement mode
+            const notification = new TextBlock("placementNotification");
+            notification.text = `Click on the map to place ${name}`;
+            notification.color = this.ACCENT_COLOR;
+            notification.fontSize = 16;
+            notification.height = "30px";
+            notification.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+            notification.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+            notification.top = "70px";
+            notification.outlineWidth = 1;
+            notification.outlineColor = "black";
+            
+            // Remove after a few seconds
+            setTimeout(() => {
+                this.mainContainer.removeControl(notification);
+            }, 3000);
+            
+            this.mainContainer.addControl(notification);
+        }
         
         // In a real implementation, you would set up event listeners for the 3D scene
         // to handle the actual building placement
     }
+
+        private getName(filename: string): string {
+            return filename
+            .replace(/\.[^/.]+$/, '')          // Remove extension
+            .split('-')                        // Split by dash
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize
+            .join(' ');                        // Join with spaces
+        }
+      
     
     // Handle navigation clicks
     private handleNavigation(destination: string): void {
         console.log(`Navigating to: ${destination}`);
         
         switch(destination) {
-            case "home":
-                this.switchToDashboard();
-                break;
-            case "cityOverview":
-                this.switchToCityView();
-                break;
             case "resources":
                 this.switchToResourcesView();
                 break;
@@ -1199,7 +1730,7 @@ private createUserProfile(): void {
         
         switch(action) {
             case "startBuilding":
-                this.switchToCityView();
+                this.switchToCityBuilding();
                 break;
             case "manageResources":
                 this.switchToResourcesView();
@@ -1230,38 +1761,98 @@ private createUserProfile(): void {
             // The 3D scene is always visible in the background
         }
     }
+
+
+    /**
+ * Shows a toast notification with the specified message and type
+ * @param message The message to display
+ * @param type The type of toast (impacts styling)
+ * @param duration Duration in milliseconds (default: 3000ms)
+ */
+public showToast(message: string, type: ToastType = ToastType.INFO, duration: number = 3000): void {
+    // Create toast container
+    const toast = new Rectangle("toast");
+    toast.width = "280px";
+    toast.height = "auto"; // Auto height based on content
+    toast.cornerRadius = 8;
+    toast.thickness = 0;
+    toast.paddingTop = "12px";
+    toast.paddingBottom = "12px";
+    toast.paddingLeft = "15px";
+    toast.paddingRight = "15px";
+    toast.horizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
+    toast.verticalAlignment = Control.VERTICAL_ALIGNMENT_TOP;
+    toast.top = "20px"; // Distance from top
+    toast.zIndex = 999; // Ensure it's on top of other UI elements
+    
+    // Set styles based on toast type
+    switch (type) {
+        case ToastType.SUCCESS:
+            toast.background = "#4CAF50"; // Green
+            break;
+        case ToastType.WARNING:
+            toast.background = "#FF9800"; // Orange
+            break;
+        case ToastType.ERROR:
+            toast.background = "#F44336"; // Red
+            break;
+        case ToastType.INFO:
+        default:
+            toast.background = "#2196F3"; // Blue
+            break;
+    }
+    
+    // Create text container
+    const textBlock = new TextBlock("toastText", message);
+    textBlock.color = "white";
+    textBlock.fontSize = 14;
+    textBlock.textWrapping = true;
+    textBlock.resizeToFit = true;
+    textBlock.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_LEFT;
+    textBlock.width = "100%";
+    toast.addControl(textBlock);
+    
+    // Add to main container
+    this.mainContainer.addControl(toast);
+    
+    // Animation for fade-in
+    toast.alpha = 0;
+    let fadeInAnimation = 0;
+    const fadeInInterval = setInterval(() => {
+        fadeInAnimation += 0.1;
+        toast.alpha = fadeInAnimation;
+        if (fadeInAnimation >= 1) {
+            clearInterval(fadeInInterval);
+        }
+    }, 20);
+    
+    // Remove toast after duration
+    setTimeout(() => {
+        // Animation for fade-out
+        let fadeOutAnimation = 1;
+        const fadeOutInterval = setInterval(() => {
+            fadeOutAnimation -= 0.1;
+            toast.alpha = fadeOutAnimation;
+            if (fadeOutAnimation <= 0) {
+                clearInterval(fadeOutInterval);
+                this.mainContainer.removeControl(toast);
+            }
+        }, 20);
+    }, duration);
+}
     
     // Switch to City Building view
-    private switchToCityView(): void {
-        if (this.currentView !== "cityView") {
-            this.currentView = "cityView";
-            
-            // Hide dashboard elements
-            this.ctaButtons.isVisible = false;
-            
-            // Show city-building elements
-            this.resourceBar.isVisible = true;
-            this.buildingInterface.isVisible = true;
-            this.miniMap.isVisible = true;
-            this.actionBar.isVisible = true;
-            
-            // Keep user profile visible
-            this.userProfile.isVisible = true;
-            
-            console.log("Switched to City Building view");
-            
-            // The 3D scene remains visible in the center
+    private switchToCityBuilding(): void {
+        this.actionBar.isVisible = !this.actionBar.isVisible;
+
+        if (!this.actionBar.isVisible){
+            this.resetSelectedResource();
         }
     }
     
     // Switch to Resources view
     private switchToResourcesView(): void {
-        if (this.currentView !== "resourcesView") {
-            this.currentView = "resourcesView";
-            console.log("Switched to Resources view");
-            
-            // Future implementation for resources interface
-        }
+        
     }
     
     // Public method to dispose UI

@@ -15,13 +15,14 @@ import {
 import { CellData, GridSystem } from './GridSystem';
 import { CameraController } from './CameraController';
 import { ChainVilleUI } from './ChainVilleUI';
+import { WorldManager } from './WorldManager';
 
 const Game: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [counter, setCounter] = useState(0);
   const sceneRef = useRef<Scene | null>(null);
-  const gridSystemRef = useRef<GridSystem | null>(null);
+  const worldManagerRef = useRef<WorldManager | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<number | null>(null);
   const [selectedCell, setSelectedCell] = useState<string | null>(null);
   const [selectedCellData, setSelectedCellData] = useState<CellData | null>(null);
@@ -43,7 +44,7 @@ const Game: React.FC = () => {
       //   ...sceneRef.current.metadata,
       //   counter: counter
       // };
-      console.log(`Updated scene metadata counter to: ${counter}`);
+      //console.log(`Updated scene metadata counter to: ${counter}`);
     }
   }, [counter]);
   
@@ -83,29 +84,7 @@ const Game: React.FC = () => {
 
     light.intensity = 0.7;
     
-    // Create a ground plane
-    const ground = MeshBuilder.CreateGround(
-      'ground',
-      { width: 100, height: 100 },
-      scene
-    );
 
-    const base = MeshBuilder.CreateBox("base", {
-      width: 100,
-      height: 2,  // Thickness of the ground
-      depth: 100
-    }, scene);
-    base.position.y = -1; // Lower it so the top is at y = 0
-
-    const baseMaterial = new StandardMaterial('groundMaterial', scene);
-    baseMaterial.diffuseColor = new Color3(0.8, 0.6, 0.4);
-    base.material = baseMaterial;
-    
-    
-    // Warm amber/brown material for ground
-    const groundMaterial = new StandardMaterial('groundMaterial', scene);
-    groundMaterial.diffuseColor = new Color3(0.8, 0.6, 0.4);
-    ground.material = groundMaterial;
 
    scene.clearColor = new Color3(0.8, 0.6, 0.4).toColor4(1);
 
@@ -121,32 +100,16 @@ const Game: React.FC = () => {
       cameraControllerRef.current = cameraController;
 
         // Create grid system
-        const gridSystem = new GridSystem(
+        const world = new WorldManager(
+          engine,
           scene,
-          {
-            districtGridSize: 6,
-            districtSize: 10,
-            districtSpacing: 10,
-            cellsPerDistrict: 30,
-            cellSpacing: 0.0001
-          },
-          {
-            onDistrictSelected: (districtId) => {
-              setSelectedDistrict(districtId);
-              setSelectedCell(null);
-              setSelectedCellData(null);
-            },
-            onCellSelected: (cellId, cellData) => {
-              setSelectedCell(cellId);
-              setSelectedCellData(cellData);
-            }
-          }
+          camera
         );
 
-        gridSystemRef.current = gridSystem;
+        worldManagerRef.current = world;
         
 
-        const chainVilleGui = new ChainVilleUI(scene);
+        
 
         // if (scene.activeCamera){
         //   scene.createDefaultSkybox(scene.environmentTexture, true, (scene.activeCamera.maxZ - scene.activeCamera.minZ)/2, 0.3, false);
